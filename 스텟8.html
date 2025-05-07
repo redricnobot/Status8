@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>캐릭터 관리</title>
+  <style>
+    body {
+      background: #222;
+      color: white;
+      font-family: sans-serif;
+      padding: 10px;
+    }
+    h2 {
+      color: #ffd700;
+      font-size: 18px;
+    }
+    input, textarea {
+      width: 100%;
+      margin-top: 5px;
+      padding: 6px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    .button {
+      margin-top: 5px;
+      padding: 8px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    .delete {
+      background: #e74c3c;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    .item {
+      background: #444;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 5px;
+    }
+    #msgBox {
+      margin-top: 10px;
+      color: #00ffcc;
+    }
+  </style>
+</head>
+<body>
+  <h2>캐릭터 이름</h2>
+  <input id="charName" placeholder="이름 입력">
+
+  <div class="section">
+    <h2>슬롯</h2>
+    <input id="slotInput" placeholder="새 슬롯 이름 입력">
+    <button class="button" onclick="createSlot()">슬롯 추가</button>
+    <div id="slotList"></div>
+  </div>
+
+  <div class="section">
+    <h2>상태이상</h2>
+    <div id="status"></div>
+    <button class="button" onclick="addStatus()">+ 추가</button>
+  </div>
+
+  <div class="section">
+    <h2>스테이터스</h2>
+    <div id="stats"></div>
+    <button class="button" onclick="addStat()">+ 추가</button>
+  </div>
+
+  <div class="section">
+    <h2>특성</h2>
+    <div id="traits"></div>
+    <button class="button" onclick="addTrait()">+ 추가</button>
+  </div>
+
+  <div>
+    <button class="button" onclick="saveData()">저장</button>
+    <button class="button" onclick="loadData()">불러오기</button>
+  </div>
+
+  <div id="msgBox"></div>
+
+  <script>
+    let currentSlot = '';
+
+    function createSlot() {
+      const slotName = document.getElementById('slotInput').value.trim();
+      if (!slotName) return showMsg("슬롯 이름을 입력하세요.");
+
+      const div = document.createElement('div');
+      div.className = "item";
+      div.innerHTML = `
+        <b>${slotName}</b>
+        <button class="button" onclick="selectSlot('${slotName}')">선택</button>
+        <button class="button delete" onclick="deleteSlot('${slotName}', this)">삭제</button>
+      `;
+      document.getElementById('slotList').appendChild(div);
+      showMsg(`슬롯 '${slotName}' 추가됨`);
+    }
+
+    function selectSlot(name) {
+      currentSlot = name;
+      showMsg(`선택된 슬롯: ${name}`);
+    }
+
+    function deleteSlot(name, btn) {
+      try {
+        localStorage.removeItem(name);
+        btn.parentElement.remove();
+        showMsg(`슬롯 '${name}' 삭제됨`);
+      } catch (e) {
+        showMsg("삭제 실패 (localStorage 미지원)");
+      }
+    }
+
+    function addStatus() {
+      addSectionItem('status');
+    }
+
+    function addStat() {
+      addSectionItem('stats');
+    }
+
+    function addTrait() {
+      addSectionItem('traits');
+    }
+
+    function addSectionItem(sectionId) {
+      const div = document.createElement('div');
+      div.className = "item";
+      div.innerHTML = `
+        <input placeholder="이름">
+        <textarea placeholder="설명"></textarea>
+        <button class="button delete" onclick="this.parentElement.remove()">삭제</button>
+      `;
+      document.getElementById(sectionId).appendChild(div);
+    }
+
+    function saveData() {
+      if (!currentSlot) return showMsg("슬롯을 선택하세요.");
+
+      const data = {
+        charName: document.getElementById('charName').value,
+        status: collectData('status'),
+        stats: collectData('stats'),
+        traits: collectData('traits')
+      };
+
+      try {
+        localStorage.setItem(currentSlot, JSON.stringify(data));
+        showMsg(`${currentSlot} 저장됨`);
+      } catch (e) {
+        showMsg("저장 실패 (localStorage 미지원)");
+      }
+    }
+
+    function loadData() {
+      if (!currentSlot) return showMsg("슬롯을 선택하세요.");
+      try {
+        const raw = localStorage.getItem(currentSlot);
+        if (!raw) return showMsg("저장된 데이터가 없습니다.");
+
+        const data = JSON.parse(raw);
+        document.getElementById('charName').value = data.charName || '';
+        ['status', 'stats', 'traits'].forEach(id => {
+          const section = document.getElementById(id);
+          section.innerHTML = '';
+          (data[id] || []).forEach(item => {
+            const div = document.createElement('div');
+            div.className = "item";
+            div.innerHTML = `
+              <input value="${item.name}">
+              <textarea>${item.desc}</textarea>
+              <button class="button delete" onclick="this.parentElement.remove()">삭제</button>
+            `;
+            section.appendChild(div);
+          });
+        });
+        showMsg(`${currentSlot} 불러오기 완료`);
+      } catch (e) {
+        showMsg("불러오기 실패");
+      }
+    }
+
+    function collectData(sectionId) {
+      const items = document.getElementById(sectionId).children;
+      const result = [];
+      for (let i = 0; i < items.length; i++) {
+        const name = items[i].querySelector('input').value;
+        const desc = items[i].querySelector('textarea').value;
+        result.push({ name, desc });
+      }
+      return result;
+    }
+
+    function showMsg(msg) {
+      document.getElementById('msgBox').innerText = msg;
+    }
+  </script>
+</body>
+</html>
